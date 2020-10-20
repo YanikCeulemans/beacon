@@ -85,6 +85,10 @@ addToColumn :: Int -> CharacterLocation -> CharacterLocation
 addToColumn newCol (CharacterLocation r@{ column }) =
   CharacterLocation r { column = newCol + column }
 
+updateLine :: Int -> CharacterLocation -> CharacterLocation
+updateLine newLine (CharacterLocation r@{ line }) =
+  CharacterLocation r { line = newLine }
+
 subtractFromLine :: Int -> CharacterLocation -> CharacterLocation
 subtractFromLine subtraction (CharacterLocation r@{ line }) =
   CharacterLocation r { line = line - subtraction }
@@ -143,22 +147,21 @@ decorateTransformation rec =
     else
       r { contents = ln : contents }
 
-applyColumnContext :: AnnotateContext -> TransformationPayload -> TransformationPayload
-applyColumnContext context charLoc ln =
-    ln
-      # drop dropCount
-      # take takeCount
-    where
-    dropCount = max 0 $ (column charLoc - context.left)
-    takeCount = context.left + context.right
+inContext :: { lineNo :: Int, before :: Int, after :: Int, pivot :: Int } -> Boolean
+inContext { lineNo, before, after, pivot } =
+  lineNo >= pivot - before && lineNo <= pivot + after
 
 lineContextTranformation :: AnnotateContext -> Transformation
 lineContextTranformation { above, below } rec =
   foldrWithIndex doTransformation cleanContentsRec rec.contents
+    # _ { charLoc = updateLine (1 + above) rec.charLoc }
   where
   cleanContentsRec = rec { contents = [] }
   doTransformation i ln r@{ charLoc, contents } =
-    r -- TODO
+    if inContext { lineNo : i, before : above, after : below, pivot : line rec.charLoc } then
+      r { contents = ln : contents }
+    else
+      r
 
 columnContextTransformation :: AnnotateContext -> Transformation
 columnContextTransformation { left, right } rec =
@@ -171,7 +174,7 @@ buildTransformations :: AnnotateConfig -> Array Transformation
 buildTransformations (AnnotateConfig { context, decorated, lineNumbered }) =
   [ if lineNumbered then Just lineNumberTransformation else Nothing
   , Just $ lineContextTranformation context
-  , Just $ columnContextTransformation context
+  -- , Just $ columnContextTransformation context
   , if decorated then Just decorateTransformation else Nothing
   ]
     # foldl removeNothings []
