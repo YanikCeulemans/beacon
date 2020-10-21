@@ -4,6 +4,8 @@ module Beacon
   , withLineNumbers
   , withContextAbove
   , withContextBelow
+  , withContextLeft
+  , withContextRight
   , CharacterLocation
   , characterLocation
   , annotate
@@ -58,6 +60,13 @@ withContextBelow :: Int -> AnnotateConfig -> AnnotateConfig
 withContextBelow amount (AnnotateConfig annotateConfig) =
   AnnotateConfig $ annotateConfig { context { below = amount  } }
   
+withContextLeft :: Int -> AnnotateConfig -> AnnotateConfig
+withContextLeft amount (AnnotateConfig annotateConfig) =
+  AnnotateConfig $ annotateConfig { context { left = amount  } }
+
+withContextRight :: Int -> AnnotateConfig -> AnnotateConfig
+withContextRight amount (AnnotateConfig annotateConfig) =
+  AnnotateConfig $ annotateConfig { context { right = amount  } }
 
 newtype CharacterLocation = CharacterLocation
   { line :: Int
@@ -168,13 +177,14 @@ columnContextTransformation { left, right } rec =
   foldr doTransformation cleanContentsRec rec.contents
   where
   cleanContentsRec = rec { contents = [] }
-  doTransformation ln r@{ charLoc, contents } = r
+  doTransformation ln r@{ charLoc, contents } =
+    r
 
 buildTransformations :: AnnotateConfig -> Array Transformation
 buildTransformations (AnnotateConfig { context, decorated, lineNumbered }) =
-  [ if lineNumbered then Just lineNumberTransformation else Nothing
+  [ Just $ columnContextTransformation context
+  , if lineNumbered then Just lineNumberTransformation else Nothing
   , Just $ lineContextTranformation context
-  -- , Just $ columnContextTransformation context
   , if decorated then Just decorateTransformation else Nothing
   ]
     # foldl removeNothings []

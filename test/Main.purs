@@ -2,7 +2,7 @@ module Test.Main where
 
 import Prelude
 
-import Beacon (annotate, characterLocation, defaultConfig, withContextAbove, withLineNumbers)
+import Beacon (annotate, characterLocation, defaultConfig, withContextAbove, withContextBelow, withContextLeft, withLineNumbers)
 import Effect (Effect)
 import Effect.Aff (launchAff_)
 import Effect.Class.Console (log)
@@ -42,5 +42,20 @@ main = do
 
       it "should correctly annotate multiple lines with context above" do
         let cfg = defaultConfig # withContextAbove 1
-        annotate cfg (characterLocation 2 2) "line 1\nline 2\nline3"
+        annotate cfg (characterLocation 2 2) "line 1\nline 2\nline 3"
           `shouldEqual` "1: line 1\n2: line 2\n    ^-----"
+
+      it "should correctly annotate multiple lines with context below" do
+        let cfg = defaultConfig # withContextBelow 1
+        annotate cfg (characterLocation 2 2) "line 1\nline 2\nline 3"
+          `shouldEqual` "2: line 2\n    ^-----\n3: line 3"
+
+      it "should correctly annotate multiple lines with context above and below" do
+        let cfg = defaultConfig # withContextAbove 1 # withContextBelow 1
+        annotate cfg (characterLocation 2 2) "line 1\nline 2\nline 3"
+          `shouldEqual` "1: line 1\n2: line 2\n    ^-----\n3: line 3"
+
+      it "should correctly annotate multiple lines with context left" do
+        let cfg = defaultConfig # withContextLeft 2
+        annotate cfg (characterLocation 2 4) "line 1\nline 2\nline 3"
+          `shouldEqual` "1: line 1\n2: line 2\n -----^\n3: line 3"
