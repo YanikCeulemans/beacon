@@ -178,7 +178,7 @@ columnContextTransformation { left, right } rec =
   where
   cleanContentsRec = rec { contents = [] }
   doTransformation ln r@{ charLoc, contents } =
-    r
+    r { contents = (String.drop (column charLoc - left) ln # String.take (left + right)) : contents }
 
 buildTransformations :: AnnotateConfig -> Array Transformation
 buildTransformations (AnnotateConfig { context, decorated, lineNumbered }) =

@@ -58,4 +58,4 @@ main = do
       it "should correctly annotate multiple lines with context left" do
         let cfg = defaultConfig # withContextLeft 2
         annotate cfg (characterLocation 2 4) "line 1\nline 2\nline 3"
-          `shouldEqual` "1: line 1\n2: line 2\n -----^\n3: line 3"
+          `shouldEqual` "2: ine 2\n-----^"
