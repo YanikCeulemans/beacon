@@ -6,6 +6,9 @@ module Beacon
   , withContextBelow
   , withContextLeft
   , withContextRight
+  , withContextVertical
+  , withContextHorizontal
+  , withoutLinenumbers
   , CharacterLocation
   , characterLocation
   , annotate
@@ -15,6 +18,8 @@ import Data.Array
 import Prelude
 
 import Data.FoldableWithIndex (foldrWithIndex)
+import Data.Generic.Rep (class Generic)
+import Data.Generic.Rep.Show (genericShow)
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.String (joinWith)
 import Data.String as String
@@ -35,6 +40,12 @@ newtype AnnotateConfig = AnnotateConfig
   , decorated :: Boolean
   , lineNumbered :: Boolean
   }
+
+derive instance genericAnnotateConfig :: Generic AnnotateConfig _
+instance showAnnotateConfig :: Show AnnotateConfig where
+  show = genericShow
+
+derive instance eqAnnotateConfig :: Eq AnnotateConfig
 
 defaultConfig :: AnnotateConfig
 defaultConfig = AnnotateConfig
@@ -67,6 +78,18 @@ withContextLeft amount (AnnotateConfig annotateConfig) =
 withContextRight :: Int -> AnnotateConfig -> AnnotateConfig
 withContextRight amount (AnnotateConfig annotateConfig) =
   AnnotateConfig $ annotateConfig { context { right = amount  } }
+
+withContextVertical :: Int -> AnnotateConfig -> AnnotateConfig
+withContextVertical amount =
+  withContextAbove amount >>> withContextBelow amount
+
+withContextHorizontal :: Int -> AnnotateConfig -> AnnotateConfig
+withContextHorizontal amount =
+  withContextLeft amount >>> withContextRight amount
+
+withoutLinenumbers :: Boolean -> AnnotateConfig -> AnnotateConfig
+withoutLinenumbers notLineNumbered (AnnotateConfig r) =
+  AnnotateConfig $ r { lineNumbered = not notLineNumbered }
 
 newtype CharacterLocation = CharacterLocation
   { line :: Int

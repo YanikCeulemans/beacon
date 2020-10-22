@@ -2,10 +2,14 @@ module Main where
 
 import Prelude
 
-import Effect (Effect)
-import Effect.Console (log)
 import Beacon (annotate, characterLocation, defaultConfig)
+import Effect (Effect)
+import Effect.Class.Console (logShow)
+import Effect.Console (log)
+import Node.Process (argv)
 
 main :: Effect Unit
 main = do
-  log $ annotate defaultConfig (characterLocation 3 5) "line 1\nline 2\nline 3\nline 4"
+  cmdLineArgs <- argv
+  logShow cmdLineArgs
+  log $ annotate defaultConfig (characterLocation 3 4) "line 1\nline 2\nline 3\nline 4"

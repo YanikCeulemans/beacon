@@ -9,6 +9,7 @@ You can edit this file as you like.
   , "console"
   , "debug"
   , "effect"
+  , "node-process"
   , "psci-support"
   , "spec"
   , "strings"

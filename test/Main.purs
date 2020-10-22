@@ -1,11 +1,13 @@
 module Test.Main where
 
 import Prelude
+import Test.Cli
 
 import Beacon (annotate, characterLocation, defaultConfig, withContextAbove, withContextBelow, withContextLeft, withContextRight, withLineNumbers)
 import Effect (Effect)
 import Effect.Aff (launchAff_)
 import Effect.Class.Console (log)
+import Test.Cli as CliTest
 import Test.Spec (describe, it)
 import Test.Spec.Assertions (shouldEqual)
 import Test.Spec.Reporter (consoleReporter)
@@ -14,6 +16,7 @@ import Test.Spec.Runner (runSpec)
 main :: Effect Unit
 main = do
   launchAff_ $ runSpec [consoleReporter] do
+    CliTest.main
     describe "annotate" do
       it "should annotate a single line with defaultConfig" do
         annotate defaultConfig (characterLocation 1 1) "line 1" 
