@@ -91,8 +91,12 @@ column :: CharacterLocation -> Int
 column (CharacterLocation { column }) = column - 1
 
 addToColumn :: Int -> CharacterLocation -> CharacterLocation
-addToColumn newCol (CharacterLocation r@{ column }) =
-  CharacterLocation r { column = newCol + column }
+addToColumn amount (CharacterLocation r@{ column }) =
+  CharacterLocation r { column = column + amount }
+
+subtractFromColumn :: Int -> CharacterLocation -> CharacterLocation
+subtractFromColumn amount (CharacterLocation r@{ column }) =
+  CharacterLocation r { column = column - amount }
 
 updateLine :: Int -> CharacterLocation -> CharacterLocation
 updateLine newLine (CharacterLocation r@{ line }) =
@@ -175,10 +179,15 @@ lineContextTranformation { above, below } rec =
 columnContextTransformation :: AnnotateContext -> Transformation
 columnContextTransformation { left, right } rec =
   foldr doTransformation cleanContentsRec rec.contents
+    # _ { charLoc = subtractFromColumn dropAmount rec.charLoc }
   where
   cleanContentsRec = rec { contents = [] }
+  dropAmount = max 0 $ column rec.charLoc - left
   doTransformation ln r@{ charLoc, contents } =
-    r { contents = (String.drop (column charLoc - left) ln # String.take (left + right)) : contents }
+    r
+      { contents = 
+        (String.drop dropAmount ln # String.take (left + right)) : contents
+      }
 
 buildTransformations :: AnnotateConfig -> Array Transformation
 buildTransformations (AnnotateConfig { context, decorated, lineNumbered }) =
