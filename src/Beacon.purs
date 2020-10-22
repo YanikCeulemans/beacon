@@ -186,7 +186,7 @@ columnContextTransformation { left, right } rec =
   doTransformation ln r@{ charLoc, contents } =
     r
       { contents = 
-        (String.drop dropAmount ln # String.take (left + right)) : contents
+        (String.drop dropAmount ln # String.take (column charLoc - dropAmount + right + 1)) : contents
       }
 
 buildTransformations :: AnnotateConfig -> Array Transformation
