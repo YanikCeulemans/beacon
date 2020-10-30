@@ -8,6 +8,8 @@ import Data.Either (Either(..))
 import Data.Int (fromString)
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.String.Regex (parseFlags)
+import Node.Buffer (Buffer)
+import Node.Encoding (Encoding(..))
 
 parseNaturalArg :: String -> Array String -> Either String (Maybe Int)
 parseNaturalArg argName args =
@@ -34,3 +36,6 @@ parseAnnotateConfig args = do
   pure defaultConfig
     <#> maybe2 withContextVertical verticalContext
     <#> withoutLinenumbers (parseFlagArg "-n" args)
+
+detectEncoding :: Array Int -> Encoding
+detectEncoding buff = UTF8
