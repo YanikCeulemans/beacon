@@ -14,11 +14,12 @@ import Node.Encoding (Encoding(..))
 import Test.Spec (SpecT(..), describe, it)
 import Test.Spec.Assertions (shouldEqual)
 
-main :: forall t3 t4. Monad t4 => MonadThrow Error t3 => SpecT t3 Unit t4 Unit
+main :: forall a b. Monad b => MonadThrow Error a => SpecT a Unit b Unit
 main = do
   parseAnnotateConfigTests
   detectEncodingTests
       
+parseAnnotateConfigTests :: forall a b. Monad b => MonadThrow Error a => SpecT a Unit b Unit
 parseAnnotateConfigTests =
   describe "parseAnnotateConfig" do
     it "should parse -c context argument" do
@@ -30,7 +31,14 @@ parseAnnotateConfigTests =
     it "should parse -n context argument" do
       parseAnnotateConfig ["-n"] `shouldEqual` (Right (defaultConfig # withoutLinenumbers true))
 
+detectEncodingTests :: forall a b. Monad b => MonadThrow Error a => SpecT a Unit b Unit
 detectEncodingTests =
   describe "detectEncoding" do
     it "should correctly detect UTF8" do
-      detectEncoding [0xEF, 0xBB, 0xBF] `shouldEqual` UTF8
+      (show $ detectEncoding [0xEF, 0xBB, 0xBF]) `shouldEqual` show UTF8
+    
+    it "should correctly detect UTF16" do
+      (show $ detectEncoding [0xFF, 0xFE]) `shouldEqual` show UTF16LE
+
+    it "should default to UTF8 when it doesn't recognize the give data as BOM" do
+      (show $ detectEncoding [0x51, 0x44, 0xAF]) `shouldEqual` show UTF8
