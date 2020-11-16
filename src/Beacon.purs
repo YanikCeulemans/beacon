@@ -1,6 +1,7 @@
 module Beacon
   (AnnotateConfig
   , defaultConfig
+  , InputSrc(..)
   , withLineNumbers
   , withContextAbove
   , withContextBelow
@@ -12,6 +13,7 @@ module Beacon
   , CharacterLocation
   , characterLocation
   , annotate
+  , inputSrc
   ) where
 
 import Data.Array
@@ -35,11 +37,25 @@ type AnnotateContext =
   , below :: Int
   }
 
+data InputSrc
+  = FilePath String
+  | StdIn
+
+derive instance genericInputSrc :: Generic InputSrc _
+derive instance eqInputSrc :: Eq InputSrc
+instance showInputSrc :: Show InputSrc where
+  show = genericShow
+
 newtype AnnotateConfig = AnnotateConfig
   { context :: AnnotateContext
   , decorated :: Boolean
   , lineNumbered :: Boolean
+  , characterLocation :: CharacterLocation
+  , inputSrc :: InputSrc
   }
+
+characterLocation' :: AnnotateConfig -> CharacterLocation
+characterLocation' (AnnotateConfig { characterLocation }) = characterLocation
 
 derive instance genericAnnotateConfig :: Generic AnnotateConfig _
 instance showAnnotateConfig :: Show AnnotateConfig where
@@ -47,8 +63,8 @@ instance showAnnotateConfig :: Show AnnotateConfig where
 
 derive instance eqAnnotateConfig :: Eq AnnotateConfig
 
-defaultConfig :: AnnotateConfig
-defaultConfig = AnnotateConfig
+defaultConfig :: InputSrc -> CharacterLocation -> AnnotateConfig
+defaultConfig inputSrc characterLocation = AnnotateConfig
   { context :
     { above : 0
     , below : 0
@@ -57,7 +73,12 @@ defaultConfig = AnnotateConfig
     }
   , decorated : true
   , lineNumbered : true
+  , characterLocation
+  , inputSrc
   }
+
+inputSrc :: AnnotateConfig -> InputSrc
+inputSrc (AnnotateConfig { inputSrc }) = inputSrc
 
 withLineNumbers :: Boolean -> AnnotateConfig -> AnnotateConfig
 withLineNumbers lineNumbered (AnnotateConfig annotateConfig) =
@@ -88,13 +109,19 @@ withContextHorizontal amount =
   withContextLeft amount >>> withContextRight amount
 
 withoutLinenumbers :: Boolean -> AnnotateConfig -> AnnotateConfig
-withoutLinenumbers notLineNumbered (AnnotateConfig r) =
-  AnnotateConfig $ r { lineNumbered = not notLineNumbered }
+withoutLinenumbers notLineNumbered =
+  withLineNumbers $ not notLineNumbered
 
 newtype CharacterLocation = CharacterLocation
   { line :: Int
   , column :: Int
   }
+
+derive instance genericCharacterLocation :: Generic CharacterLocation _
+derive instance eqCharacterLocation :: Eq CharacterLocation
+
+instance showCharacterLocation :: Show CharacterLocation where
+  show = genericShow
 
 type TransformationPayload =
   { charLoc :: CharacterLocation
@@ -229,11 +256,14 @@ buildTransformations (AnnotateConfig { context, decorated, lineNumbered }) =
 applyTransformation :: TransformationPayload -> Transformation -> TransformationPayload
 applyTransformation payload t = t payload
 
-annotate :: AnnotateConfig -> CharacterLocation -> String -> String
-annotate config charLoc input = case lines input of
+annotate :: AnnotateConfig -> String -> String
+annotate config input = case lines input of
   [] -> ""
   contents -> joinWith "\n" decoratedContents.contents
     where
       decoratedContents =
         buildTransformations config
-          # foldl applyTransformation { charLoc, contents }
+          # foldl applyTransformation
+            { charLoc : characterLocation' config
+            , contents
+            }

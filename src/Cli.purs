@@ -1,17 +1,24 @@
 module Cli where
 
+import Options.Applicative
 import Prelude
 
-import Beacon (AnnotateConfig, CharacterLocation, characterLocation, defaultConfig, withContextVertical, withoutLinenumbers)
+import Beacon (AnnotateConfig, CharacterLocation, InputSrc(..), characterLocation, defaultConfig, inputSrc, withContextAbove, withContextBelow, withContextVertical, withoutLinenumbers)
+import Control.Alt ((<|>))
 import Data.Array (any, dropWhile, last, slice, snoc, take)
 import Data.Either (Either(..), note)
 import Data.Int (fromString)
-import Data.Maybe (Maybe(..), maybe)
+import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.String (Pattern(..), split)
+import Effect (Effect)
 import Effect.Aff (Aff, effectCanceler, makeAff, nonCanceler)
+import Effect.Class (liftEffect)
+import Effect.Class.Console (log)
 import Effect.Ref as Ref
-import Node.Buffer (Buffer, concat)
+import Node.Buffer (Buffer, concat, toArray, toString)
 import Node.Encoding (Encoding(..))
+import Node.FS.Aff (exists)
+import Node.Process (stdin)
 import Node.Stream (Readable, onData, onEnd, onError, pause)
 
 parseNaturalArg :: String -> Array String -> Either String (Maybe Int)
@@ -37,25 +44,14 @@ maybe2 :: forall a b. (a -> b -> b) -> Maybe a -> b -> b
 maybe2 fn maybeA b =
   maybe b (flip fn b) maybeA
 
-parseAnnotateConfig :: Array String -> Either String AnnotateConfig
-parseAnnotateConfig args = do
-  verticalContext <- parseNaturalArg "-c" args
-  pure defaultConfig
-    <#> maybe2 withContextVertical verticalContext
-    <#> withoutLinenumbers (parseFlagArg "-n" args)
-
-parseCharacterLocation :: Array String -> Either String CharacterLocation
-parseCharacterLocation args = do
-  charLocStr <- note "Required arg -l not found." $ parseStrArg "-l" args
-  fromString' charLocStr
-  where
-    fromString' s =
-      case split (Pattern ":") s <#> fromString of
-        [Just line, Just column] ->
-          Right $ characterLocation line column
-        _ ->
-          Left $ "Expected -l arg to be supplied a value in the form 'n:n' "
-            <> "where n is any natural number. Instead got '" <> s <> "'"
+parseCharacterLocation :: String -> Either String CharacterLocation
+parseCharacterLocation s = 
+  case split (Pattern ":") s <#> fromString of
+    [Just line, Just column] ->
+      Right $ characterLocation line column
+    _ ->
+      Left $ "Expected a value to be supplied in the form 'n:n' "
+        <> "where n is any natural number. Instead got '" <> s <> "'"
 
 detectEncoding :: Array Int -> Encoding
 detectEncoding arr = case slice 0 2 arr of
@@ -78,3 +74,88 @@ readFromStream r = makeAff $ \res ->
       res $ Right (Just allData)
     onError r $ Left >>> res
     pure $ effectCanceler (pause r)
+
+
+contextParser :: Parser Int
+contextParser =
+  option int
+    ( long "context"
+    <> short 'c'
+    <> metavar "AMOUNT"
+    <> showDefault
+    <> value 0
+    <> help "The amount of context to show above and below the location"
+    )
+
+disableLineNumbersParser :: Parser Boolean
+disableLineNumbersParser =
+  switch
+    ( long "no-line-numbers"
+    <> short 'n'
+    <> help "Whether or not to disable showing line numbers in the output"
+    )
+
+inputSrcParser :: Parser InputSrc
+inputSrcParser =
+  fileInputParser <|> pure StdIn
+  where
+  fileInputParser =
+    argument (str <#> FilePath) (metavar "FILEPATH")
+
+annotateConfigParser :: Parser AnnotateConfig
+annotateConfigParser = ado
+  inputSrc <- inputSrcParser
+  characterLocation <- characterLocationParser
+  contextAmount <- contextParser
+  disableLineNumbers <- disableLineNumbersParser
+  in defaultConfig inputSrc characterLocation
+    # withContextVertical contextAmount
+    # withoutLinenumbers disableLineNumbers
+
+parseAnnotateConfig :: Effect AnnotateConfig
+parseAnnotateConfig =
+  execParser opts
+  where
+    opts = info (annotateConfigParser <**> helper)
+      ( fullDesc
+      <> progDesc "Show line and column number given input and location"
+      )
+
+annotateInput :: AnnotateConfig -> Aff (Either String String)
+annotateInput annotateConfig =
+  case inputSrc annotateConfig of
+    FilePath filePath ->
+      fromFile filePath
+    StdIn -> 
+      fromStdin
+  where
+  fromBuffer :: Buffer -> Aff String
+  fromBuffer buff = liftEffect do
+    encoding <- detectEncoding <$> toArray buff
+    toString encoding buff
+  fromStdin :: Aff (Either String String)
+  fromStdin = do
+    maybeBuff <- readFromStream stdin
+    case maybeBuff of
+      Nothing ->
+        pure $ Left "No stdin stream found"
+      Just buff ->
+        fromBuffer buff <#> Right
+  fromFile :: String -> Aff (Either String String)
+  fromFile filePath = do
+    pure $ Left "Not supported yet"
+    -- fileExists <- exists filePath
+    -- unless fileExists $ pure (Left "File doesnt exist")
+
+
+characterLocationParser :: Parser CharacterLocation
+characterLocationParser = 
+  option characterLocationReader
+    ( long "location"
+    <> short 'l'
+    <> metavar "LOCATION"
+    <> help "The location to show, in the format 'line:column' e.g. '15:42'"
+    )
+  where
+  characterLocationReader = eitherReader parseCharacterLocation
+
