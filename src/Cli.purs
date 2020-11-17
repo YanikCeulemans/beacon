@@ -6,19 +6,22 @@ import Prelude
 import Beacon (AnnotateConfig, CharacterLocation, InputSrc(..), characterLocation, defaultConfig, inputSrc, withContextAbove, withContextBelow, withContextVertical, withoutLinenumbers)
 import Control.Alt ((<|>))
 import Data.Array (any, dropWhile, last, slice, snoc, take)
+import Data.Bifunctor (lmap)
 import Data.Either (Either(..), note)
 import Data.Int (fromString)
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.String (Pattern(..), split)
+import Debug.Trace (spy)
 import Effect (Effect)
-import Effect.Aff (Aff, effectCanceler, makeAff, nonCanceler)
+import Effect.Aff (Aff, effectCanceler, makeAff, message, nonCanceler, try)
 import Effect.Class (liftEffect)
 import Effect.Class.Console (log)
 import Effect.Ref as Ref
 import Node.Buffer (Buffer, concat, toArray, toString)
 import Node.Encoding (Encoding(..))
-import Node.FS.Aff (exists)
-import Node.Process (stdin)
+import Node.FS.Aff (exists, readFile)
+import Node.Path (relative)
+import Node.Process (cwd, stdin)
 import Node.Stream (Readable, onData, onEnd, onError, pause)
 
 parseNaturalArg :: String -> Array String -> Either String (Maybe Int)
@@ -100,15 +103,19 @@ inputSrcParser =
   fileInputParser <|> pure StdIn
   where
   fileInputParser =
-    argument (str <#> FilePath) (metavar "FILEPATH")
+    argument (str <#> FilePath)
+      ( metavar "FILEPATH"
+      <> help "The relative path of the input file, uses stdin if not given"
+      )
+    
 
 annotateConfigParser :: Parser AnnotateConfig
 annotateConfigParser = ado
-  inputSrc <- inputSrcParser
   characterLocation <- characterLocationParser
   contextAmount <- contextParser
   disableLineNumbers <- disableLineNumbersParser
-  in defaultConfig inputSrc characterLocation
+  src <- inputSrcParser
+  in defaultConfig src characterLocation
     # withContextVertical contextAmount
     # withoutLinenumbers disableLineNumbers
 
@@ -138,15 +145,15 @@ annotateInput annotateConfig =
     maybeBuff <- readFromStream stdin
     case maybeBuff of
       Nothing ->
-        pure $ Left "No stdin stream found"
+        pure $ Left "No stdin stream found as input, see --help for more info"
       Just buff ->
         fromBuffer buff <#> Right
   fromFile :: String -> Aff (Either String String)
-  fromFile filePath = do
-    pure $ Left "Not supported yet"
-    -- fileExists <- exists filePath
-    -- unless fileExists $ pure (Left "File doesnt exist")
-
+  fromFile relPath = lmap message <$> try do
+    currPath <- liftEffect cwd
+    let absPath = relative currPath relPath
+    fileBuff <- readFile absPath
+    fromBuffer fileBuff
 
 characterLocationParser :: Parser CharacterLocation
 characterLocationParser = 
