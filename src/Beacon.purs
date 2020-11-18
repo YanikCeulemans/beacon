@@ -13,7 +13,6 @@ module Beacon
   , CharacterLocation
   , characterLocation
   , annotate
-  , inputSrc
   ) where
 
 import Data.Array
@@ -51,7 +50,6 @@ newtype AnnotateConfig = AnnotateConfig
   , decorated :: Boolean
   , lineNumbered :: Boolean
   , characterLocation :: CharacterLocation
-  , inputSrc :: InputSrc
   }
 
 characterLocation' :: AnnotateConfig -> CharacterLocation
@@ -63,8 +61,8 @@ instance showAnnotateConfig :: Show AnnotateConfig where
 
 derive instance eqAnnotateConfig :: Eq AnnotateConfig
 
-defaultConfig :: InputSrc -> CharacterLocation -> AnnotateConfig
-defaultConfig inputSrc characterLocation = AnnotateConfig
+defaultConfig :: CharacterLocation -> AnnotateConfig
+defaultConfig characterLocation = AnnotateConfig
   { context :
     { above : 0
     , below : 0
@@ -74,11 +72,7 @@ defaultConfig inputSrc characterLocation = AnnotateConfig
   , decorated : true
   , lineNumbered : true
   , characterLocation
-  , inputSrc
   }
-
-inputSrc :: AnnotateConfig -> InputSrc
-inputSrc (AnnotateConfig { inputSrc }) = inputSrc
 
 withLineNumbers :: Boolean -> AnnotateConfig -> AnnotateConfig
 withLineNumbers lineNumbered (AnnotateConfig annotateConfig) =

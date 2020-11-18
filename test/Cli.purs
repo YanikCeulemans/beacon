@@ -17,21 +17,8 @@ import Test.Spec.Assertions (shouldEqual)
 
 main :: forall a b. Monad b => MonadThrow Error a => SpecT a Unit b Unit
 main = do
-  -- parseAnnotateConfigTests
   detectEncodingTests
       
--- parseAnnotateConfigTests :: forall a b. Monad b => MonadThrow Error a => SpecT a Unit b Unit
--- parseAnnotateConfigTests =
---   describe "parseAnnotateConfig" do
---     it "should parse -c context argument" do
---       parseAnnotateConfig ["-c", "2"] `shouldEqual` (Right (defaultConfig # withContextAbove 2 # withContextBelow 2))
-
---     it "should parse Nothing from empty arguments" do
---       parseAnnotateConfig [] `shouldEqual` (Right defaultConfig)
-
---     it "should parse -n context argument" do
---       parseAnnotateConfig ["-n"] `shouldEqual` (Right (defaultConfig # withoutLinenumbers true))
-
 detectEncodingTests :: forall a b. Monad b => MonadThrow Error a => SpecT a Unit b Unit
 detectEncodingTests =
   describe "detectEncoding" do

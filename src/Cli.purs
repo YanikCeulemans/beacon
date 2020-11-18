@@ -1,9 +1,9 @@
-module Cli where
+module Cli (annotateInput, parseAnnotateConfig, detectEncoding) where
 
 import Options.Applicative
 import Prelude
 
-import Beacon (AnnotateConfig, CharacterLocation, InputSrc(..), characterLocation, defaultConfig, inputSrc, withContextAbove, withContextBelow, withContextVertical, withoutLinenumbers)
+import Beacon (AnnotateConfig, CharacterLocation, InputSrc(..), characterLocation, defaultConfig, withContextAbove, withContextBelow, withContextVertical, withoutLinenumbers)
 import Control.Alt ((<|>))
 import Data.Array (any, dropWhile, last, slice, snoc, take)
 import Data.Bifunctor (lmap)
@@ -23,38 +23,6 @@ import Node.FS.Aff (exists, readFile)
 import Node.Path (relative)
 import Node.Process (cwd, stdin)
 import Node.Stream (Readable, onData, onEnd, onError, pause)
-
-parseNaturalArg :: String -> Array String -> Either String (Maybe Int)
-parseNaturalArg argName args =
-  case dropWhile (\a -> a /= argName) args # take 2 # last of
-    Nothing -> Right Nothing
-    Just naturalArg ->
-      case fromString naturalArg of
-        Nothing -> Left $ "expected arg " <> argName <> " to be a natural non-zero number, instead got: " <> naturalArg
-        Just n
-          | n <= 0 -> Left $ "expected arg " <> argName <> " to be a natural non-zero number, instead got: " <> show n
-          | otherwise -> Right $ Just n
-
-parseFlagArg :: String -> Array String -> Boolean
-parseFlagArg argName args =
-  any (\a -> a == argName) args
-
-parseStrArg :: String -> Array String -> Maybe String
-parseStrArg argName args =
-  dropWhile (\a -> a /= argName) args # take 2 # last
-
-maybe2 :: forall a b. (a -> b -> b) -> Maybe a -> b -> b
-maybe2 fn maybeA b =
-  maybe b (flip fn b) maybeA
-
-parseCharacterLocation :: String -> Either String CharacterLocation
-parseCharacterLocation s = 
-  case split (Pattern ":") s <#> fromString of
-    [Just line, Just column] ->
-      Right $ characterLocation line column
-    _ ->
-      Left $ "Expected a value to be supplied in the form 'n:n' "
-        <> "where n is any natural number. Instead got '" <> s <> "'"
 
 detectEncoding :: Array Int -> Encoding
 detectEncoding arr = case slice 0 2 arr of
@@ -107,19 +75,22 @@ inputSrcParser =
       ( metavar "FILEPATH"
       <> help "The relative path of the input file, uses stdin if not given"
       )
-    
 
-annotateConfigParser :: Parser AnnotateConfig
+annotateConfigParser :: Parser { annotateConfig :: AnnotateConfig, inputSrc :: InputSrc }
 annotateConfigParser = ado
   characterLocation <- characterLocationParser
   contextAmount <- contextParser
   disableLineNumbers <- disableLineNumbersParser
   src <- inputSrcParser
-  in defaultConfig src characterLocation
-    # withContextVertical contextAmount
-    # withoutLinenumbers disableLineNumbers
+  in
+    { annotateConfig :
+      defaultConfig characterLocation
+        # withContextVertical contextAmount
+        # withoutLinenumbers disableLineNumbers
+    , inputSrc : src
+    }
 
-parseAnnotateConfig :: Effect AnnotateConfig
+parseAnnotateConfig :: Effect { annotateConfig :: AnnotateConfig, inputSrc :: InputSrc }
 parseAnnotateConfig =
   execParser opts
   where
@@ -128,9 +99,9 @@ parseAnnotateConfig =
       <> progDesc "Show line and column number given input and location"
       )
 
-annotateInput :: AnnotateConfig -> Aff (Either String String)
-annotateInput annotateConfig =
-  case inputSrc annotateConfig of
+annotateInput :: InputSrc -> Aff (Either String String)
+annotateInput src =
+  case src of
     FilePath filePath ->
       fromFile filePath
     StdIn -> 
@@ -154,6 +125,15 @@ annotateInput annotateConfig =
     let absPath = relative currPath relPath
     fileBuff <- readFile absPath
     fromBuffer fileBuff
+
+parseCharacterLocation :: String -> Either String CharacterLocation
+parseCharacterLocation s = 
+  case split (Pattern ":") s <#> fromString of
+    [Just line, Just column] ->
+      Right $ characterLocation line column
+    _ ->
+      Left $ "Expected a value to be supplied in the form 'n:n' "
+        <> "where n is any natural number. Instead got '" <> s <> "'"
 
 characterLocationParser :: Parser CharacterLocation
 characterLocationParser = 
