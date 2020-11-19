@@ -1,13 +1,20 @@
-module Cli (annotateInput, parseAnnotateConfig, detectEncoding) where
+module Cli
+  ( annotateInput
+  , detectEncoding
+  , class ArgsProvider
+  , provideArgs
+  , parseAnnotateCliOptions
+  ) where
 
 import Options.Applicative
 import Prelude
 
 import Beacon (AnnotateConfig, CharacterLocation, InputSrc(..), characterLocation, defaultConfig, withContextAbove, withContextBelow, withContextVertical, withoutLinenumbers)
 import Control.Alt ((<|>))
-import Data.Array (any, dropWhile, last, slice, snoc, take)
+import Data.Array (any, drop, dropWhile, last, slice, snoc, take)
 import Data.Bifunctor (lmap)
 import Data.Either (Either(..), note)
+import Data.Identity (Identity(..))
 import Data.Int (fromString)
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.String (Pattern(..), split)
@@ -21,7 +28,7 @@ import Node.Buffer (Buffer, concat, toArray, toString)
 import Node.Encoding (Encoding(..))
 import Node.FS.Aff (exists, readFile)
 import Node.Path (relative)
-import Node.Process (cwd, stdin)
+import Node.Process (argv, cwd, stdin)
 import Node.Stream (Readable, onData, onEnd, onError, pause)
 
 detectEncoding :: Array Int -> Encoding
@@ -90,15 +97,6 @@ annotateConfigParser = ado
     , inputSrc : src
     }
 
-parseAnnotateConfig :: Effect { annotateConfig :: AnnotateConfig, inputSrc :: InputSrc }
-parseAnnotateConfig =
-  execParser opts
-  where
-    opts = info (annotateConfigParser <**> helper)
-      ( fullDesc
-      <> progDesc "Show line and column number given input and location"
-      )
-
 annotateInput :: InputSrc -> Aff (Either String String)
 annotateInput src =
   case src of
@@ -146,3 +144,23 @@ characterLocationParser =
   where
   characterLocationReader = eitherReader parseCharacterLocation
 
+type AnnotateCliOptions =
+  { annotateConfig :: AnnotateConfig
+  , inputSrc :: InputSrc
+  }
+
+parseAnnotateCliOptions :: Array String -> ParserResult AnnotateCliOptions
+parseAnnotateCliOptions =
+  execParserPure defaultPrefs annotateCliOptionsParser
+  where
+  annotateCliOptionsParser =
+    info (annotateConfigParser <**> helper)
+      ( fullDesc
+      <> progDesc "Show line and column number given input and location"
+      )
+
+class ArgsProvider m where
+  provideArgs :: m (Array String)
+
+instance argvArgsProvider :: ArgsProvider Effect where
+  provideArgs = argv <#> drop 2

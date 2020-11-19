@@ -1,12 +1,10 @@
 module Test.Main where
 
-import Prelude
-import Test.Cli
+import Prelude (Unit, discard, (#), ($))
 
-import Beacon (InputSrc(..), annotate, characterLocation, defaultConfig, withContextAbove, withContextBelow, withContextLeft, withContextRight, withLineNumbers)
+import Beacon (annotate, characterLocation, defaultConfig, withContextAbove, withContextBelow, withContextLeft, withContextRight, withLineNumbers)
 import Effect (Effect)
 import Effect.Aff (launchAff_)
-import Effect.Class.Console (log)
 import Test.Cli as CliTest
 import Test.Spec (describe, it)
 import Test.Spec.Assertions (shouldEqual)
