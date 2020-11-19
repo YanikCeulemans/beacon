@@ -66,8 +66,8 @@ defaultConfig characterLocation = AnnotateConfig
   { context :
     { above : 0
     , below : 0
-    , left : 150
-    , right : 150
+    , left : 100
+    , right : 100
     }
   , decorated : true
   , lineNumbered : true

@@ -9,7 +9,7 @@ module Cli
 import Options.Applicative
 import Prelude
 
-import Beacon (AnnotateConfig, CharacterLocation, InputSrc(..), characterLocation, defaultConfig, withContextAbove, withContextBelow, withContextVertical, withoutLinenumbers)
+import Beacon (AnnotateConfig, CharacterLocation, InputSrc(..), characterLocation, defaultConfig, withContextAbove, withContextBelow, withContextHorizontal, withContextVertical, withoutLinenumbers)
 import Control.Alt ((<|>))
 import Data.Array (any, drop, dropWhile, last, slice, snoc, take)
 import Data.Bifunctor (lmap)
@@ -65,6 +65,16 @@ contextParser =
     <> help "The amount of context to show above and below the location"
     )
 
+horizontalContextParser :: Parser Int
+horizontalContextParser =
+  option int
+    ( long "horizontal-context"
+    <> metavar "AMOUNT"
+    <> showDefault
+    <> value 100
+    <> help "The amount of context to show before and after the location"
+    )
+
 disableLineNumbersParser :: Parser Boolean
 disableLineNumbersParser =
   switch
@@ -87,12 +97,14 @@ annotateConfigParser :: Parser { annotateConfig :: AnnotateConfig, inputSrc :: I
 annotateConfigParser = ado
   characterLocation <- characterLocationParser
   contextAmount <- contextParser
+  horizontalContextAmount <- horizontalContextParser
   disableLineNumbers <- disableLineNumbersParser
   src <- inputSrcParser
   in
     { annotateConfig :
       defaultConfig characterLocation
         # withContextVertical contextAmount
+        # withContextHorizontal horizontalContextAmount
         # withoutLinenumbers disableLineNumbers
     , inputSrc : src
     }

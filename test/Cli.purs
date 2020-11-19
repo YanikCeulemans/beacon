@@ -2,10 +2,12 @@ module Test.Cli (main) where
 
 import Prelude
 
-import Beacon (InputSrc(..), characterLocation, defaultConfig, withContextVertical, withoutLinenumbers)
+import Beacon (InputSrc(..), characterLocation, defaultConfig, withContextHorizontal, withContextVertical, withoutLinenumbers)
 import Cli (detectEncoding, parseAnnotateCliOptions)
 import Control.Monad.Error.Class (class MonadThrow)
+import Data.Array ((:))
 import Data.Maybe (Maybe(..), isJust)
+import Data.Traversable (traverse)
 import Data.Tuple (Tuple(..), fst)
 import Debug.Trace (spy)
 import Effect.Exception (Error)
@@ -37,7 +39,25 @@ parseAnnotateCliOptionsTests :: forall a b. Monad b => MonadThrow Error a => Spe
 parseAnnotateCliOptionsTests =
   describe "parseAnnotateCliOptions" do
     it "should report missing location option" do
-      (parseErrorMsg $ parseAnnotateCliOptions []) `shouldContain` "Missing: (-l|--location LOCATION)"
+      let
+        actual =
+          parseAnnotateCliOptions []
+            # parseErrorMsg
+      actual `shouldContain` "Missing: (-l|--location LOCATION)"
+
+    -- it "should work" do
+    --   let
+    --     charLocSpec charLoc =
+    --       (parseAnnotateCliOptions ("-l" : [charLoc]) # parseErrorMsg)
+    --         `shouldContain` ("test")
+    --   traverse charLocSpec ["a", "a:a", "1:a", "a:1", "a,a"]
+
+    it "should report incorrect location option" do
+      let
+        actual =
+          parseAnnotateCliOptions ["-l", "a:a"]
+            # parseErrorMsg
+      actual `shouldContain` "Expected a value to be supplied in the form 'n:n'"
 
     it "should parse character location" do
       let
@@ -88,6 +108,19 @@ parseAnnotateCliOptionsTests =
           characterLocation 12 21
             # defaultConfig
             # withoutLinenumbers true
+            # Just
+      actual `shouldEqual` expected
+    
+    it "should parse horizontal context" do
+      let
+        actual =
+          parseAnnotateCliOptions ["-l", "12:21", "--horizontal-context", "42"]
+            # getParseResult
+            <#> _.annotateConfig
+        expected =
+          characterLocation 12 21
+            # defaultConfig
+            # withContextHorizontal 42
             # Just
       actual `shouldEqual` expected
 
