@@ -1,5 +1,8 @@
 module Test.Cli (main) where
 
+import Prelude
+
+import Beacon (InputSrc(..), characterLocation, defaultConfig, withContextVertical, withoutLinenumbers)
 import Cli (detectEncoding, parseAnnotateCliOptions)
 import Control.Monad.Error.Class (class MonadThrow)
 import Data.Maybe (Maybe(..), isJust)
@@ -9,7 +12,6 @@ import Effect.Exception (Error)
 import Node.Encoding (Encoding(..))
 import Options.Applicative (ParserFailure(..), ParserResult(..), getParseResult, overFailure, renderFailure)
 import Options.Applicative.Help (renderHelp)
-import Prelude (class Monad, class Show, Unit, discard, show, (#), ($), (<<<))
 import Test.Spec (SpecT, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 import Test.Spec.Assertions.String (shouldContain)
@@ -36,8 +38,58 @@ parseAnnotateCliOptionsTests =
   describe "parseAnnotateCliOptions" do
     it "should report missing location option" do
       (parseErrorMsg $ parseAnnotateCliOptions []) `shouldContain` "Missing: (-l|--location LOCATION)"
-    it "should not error on correct args" do
-      (parseAnnotateCliOptions ["-l", "12:21"] # getParseResult # isJust) `shouldEqual` true
+
+    it "should parse character location" do
+      let
+        actual =
+          parseAnnotateCliOptions ["-l", "12:21"]
+            # getParseResult
+            <#> _.annotateConfig
+        expected =
+          characterLocation 12 21 # defaultConfig # Just
+      actual `shouldEqual` expected
+
+    it "should parse context" do
+      let
+        actual = 
+          parseAnnotateCliOptions ["-l", "12:21", "-c", "2"]
+            # getParseResult
+            <#> _.annotateConfig
+        expected =
+          characterLocation 12 21 # defaultConfig # withContextVertical 2 # Just
+      actual `shouldEqual` expected
+
+    it "should identify InputSrc stdin without FILEPATH argument" do
+      let
+        actual =
+          parseAnnotateCliOptions ["-l", "12:21"]
+            # getParseResult
+            <#> _.inputSrc
+        expected = Just StdIn
+      actual `shouldEqual` expected
+
+    it "should parse FILEPATH argument" do
+      let
+        actual =
+          parseAnnotateCliOptions ["-l", "12:21", "filepath"]
+            # getParseResult
+            <#> _.inputSrc
+        expected =
+          Just $ FilePath "filepath"
+      actual `shouldEqual` expected
+
+    it "should parse no-line-numbers flag" do
+      let
+        actual =
+          parseAnnotateCliOptions ["-l", "12:21", "-n"]
+            # getParseResult
+            <#> _.annotateConfig
+        expected =
+          characterLocation 12 21
+            # defaultConfig
+            # withoutLinenumbers true
+            # Just
+      actual `shouldEqual` expected
 
 parseErrorMsg :: forall a. ParserResult a -> String
 parseErrorMsg = show <<< case _ of
