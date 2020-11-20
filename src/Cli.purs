@@ -11,11 +11,12 @@ import Prelude
 
 import Beacon (AnnotateConfig, CharacterLocation, InputSrc(..), characterLocation, defaultConfig, withContextAbove, withContextBelow, withContextHorizontal, withContextVertical, withoutLinenumbers)
 import Control.Alt ((<|>))
+import Control.MonadZero (guard)
 import Data.Array (any, drop, dropWhile, last, slice, snoc, take)
 import Data.Bifunctor (lmap)
 import Data.Either (Either(..), note)
 import Data.Identity (Identity(..))
-import Data.Int (fromString)
+import Data.Int as Int
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.String (Pattern(..), split)
 import Debug.Trace (spy)
@@ -136,9 +137,17 @@ annotateInput src =
     fileBuff <- readFile absPath
     fromBuffer fileBuff
 
+ensureNatural :: Array (Maybe Int) -> Array (Maybe Int)
+ensureNatural maybeXs = do
+  maybeX <- maybeXs
+  pure do
+    x <- maybeX
+    guard $ x > 0
+    pure x
+
 parseCharacterLocation :: String -> Either String CharacterLocation
 parseCharacterLocation s = 
-  case split (Pattern ":") s <#> fromString of
+  case split (Pattern ":") s <#> Int.fromString # ensureNatural of
     [Just line, Just column] ->
       Right $ characterLocation line column
     _ ->
@@ -146,7 +155,7 @@ parseCharacterLocation s =
         <> "where n is any natural number. Instead got '" <> s <> "'"
 
 characterLocationParser :: Parser CharacterLocation
-characterLocationParser = 
+characterLocationParser =
   option characterLocationReader
     ( long "location"
     <> short 'l'

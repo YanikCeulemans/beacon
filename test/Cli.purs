@@ -5,9 +5,9 @@ import Prelude
 import Beacon (InputSrc(..), characterLocation, defaultConfig, withContextHorizontal, withContextVertical, withoutLinenumbers)
 import Cli (detectEncoding, parseAnnotateCliOptions)
 import Control.Monad.Error.Class (class MonadThrow)
-import Data.Array ((:))
+import Data.Array (fold, (:))
 import Data.Maybe (Maybe(..), isJust)
-import Data.Traversable (traverse)
+import Data.Traversable (sequence, traverse)
 import Data.Tuple (Tuple(..), fst)
 import Debug.Trace (spy)
 import Effect.Exception (Error)
@@ -32,32 +32,37 @@ detectEncodingTests =
     it "should correctly detect UTF16" do
       (show $ detectEncoding [0xFF, 0xFE]) `shouldEqual` show UTF16LE
 
-    it "should default to UTF8 when it doesn't recognize the give data as BOM" do
+    it "should default to UTF8 when it doesn't recognize the given data as BOM" do
       (show $ detectEncoding [0x51, 0x44, 0xAF]) `shouldEqual` show UTF8
+
+charLocSpec :: forall a m. Monad m => MonadThrow Error a => String -> String -> SpecT a Unit m Unit
+charLocSpec desc charLoc = it (desc <> " " <> charLoc) do
+  (parseAnnotateCliOptions ("-l" : [charLoc]) # parseErrorMsg)
+    `shouldContain` "Expected a value to be supplied in the form 'n:n'"
 
 parseAnnotateCliOptionsTests :: forall a b. Monad b => MonadThrow Error a => SpecT a Unit b Unit
 parseAnnotateCliOptionsTests =
   describe "parseAnnotateCliOptions" do
+    describe "with incorrect location option" do
+      traverse (charLocSpec "should error for -l")
+        [ "a"
+        , "a:a"
+        , "1:a"
+        , "a:1"
+        , "-1:1"
+        , "1:-1"
+        , "-1:-1"
+        , "1e10:1"
+        , "1.1:1"
+        ]
+        <#> fold
+
     it "should report missing location option" do
       let
         actual =
           parseAnnotateCliOptions []
             # parseErrorMsg
       actual `shouldContain` "Missing: (-l|--location LOCATION)"
-
-    -- it "should work" do
-    --   let
-    --     charLocSpec charLoc =
-    --       (parseAnnotateCliOptions ("-l" : [charLoc]) # parseErrorMsg)
-    --         `shouldContain` ("test")
-    --   traverse charLocSpec ["a", "a:a", "1:a", "a:1", "a,a"]
-
-    it "should report incorrect location option" do
-      let
-        actual =
-          parseAnnotateCliOptions ["-l", "a:a"]
-            # parseErrorMsg
-      actual `shouldContain` "Expected a value to be supplied in the form 'n:n'"
 
     it "should parse character location" do
       let
