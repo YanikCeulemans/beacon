@@ -10,7 +10,7 @@ module Cli
 import Options.Applicative
 import Prelude
 
-import Beacon (AnnotateConfig, CharacterLocation, InputSrc(..), characterLocation, defaultConfig, withContextAbove, withContextBelow, withContextHorizontal, withContextVertical, withoutLinenumbers)
+import Beacon (AnnotateConfig, CharacterLocation, InputSrc(..), characterLocation, defaultConfig, withContextHorizontal, withContextVertical, withoutLinenumbers)
 import Control.Alt ((<|>))
 import Control.MonadZero (guard)
 import Data.Array (any, drop, dropWhile, last, slice, snoc, take)

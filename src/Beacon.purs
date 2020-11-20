@@ -3,10 +3,6 @@ module Beacon
   , defaultConfig
   , InputSrc(..)
   , withLineNumbers
-  , withContextAbove
-  , withContextBelow
-  , withContextLeft
-  , withContextRight
   , withContextVertical
   , withContextHorizontal
   , withoutLinenumbers
