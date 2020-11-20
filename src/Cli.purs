@@ -166,6 +166,13 @@ characterLocationParser =
   where
   characterLocationReader = eitherReader parseCharacterLocation
 
+versionParser :: forall a. Parser (a -> a)
+versionParser = abortOption (InfoMsg "beacon v1.0.0")
+  ( long "version"
+  <> short 'v'
+  <> help "Show the current beacon version"
+  )
+
 type AnnotateCliOptions =
   { annotateConfig :: AnnotateConfig
   , inputSrc :: InputSrc
@@ -176,7 +183,7 @@ parseAnnotateCliOptions =
   execParserPure defaultPrefs annotateCliOptionsParser
   where
   annotateCliOptionsParser =
-    info (annotateConfigParser <**> helper)
+    info (annotateConfigParser <**> versionParser <**> helper)
       ( fullDesc
       <> progDesc "Show line and column number given input and location"
       )
