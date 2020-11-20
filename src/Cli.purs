@@ -4,6 +4,7 @@ module Cli
   , class ArgsProvider
   , provideArgs
   , parseAnnotateCliOptions
+  , AnnotateCliOptions
   ) where
 
 import Options.Applicative
