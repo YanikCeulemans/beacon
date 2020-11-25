@@ -12,6 +12,7 @@ import Prelude
 
 import Beacon (AnnotateConfig, CharacterLocation, InputSrc(..), characterLocation, defaultConfig, withContextHorizontal, withContextVertical, withoutLinenumbers)
 import Control.Alt ((<|>))
+import Control.Monad.Except (ExceptT(..), catchError, throwError, withExceptT)
 import Control.MonadZero (guard)
 import Data.Array (any, drop, dropWhile, last, slice, snoc, take)
 import Data.Bifunctor (lmap)
@@ -22,7 +23,7 @@ import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.String (Pattern(..), split)
 import Debug.Trace (spy)
 import Effect (Effect)
-import Effect.Aff (Aff, effectCanceler, makeAff, message, nonCanceler, try)
+import Effect.Aff (Aff, effectCanceler, error, makeAff, message, nonCanceler, try)
 import Effect.Class (liftEffect)
 import Effect.Class.Console (log)
 import Effect.Ref as Ref
@@ -111,7 +112,7 @@ annotateConfigParser = ado
     , inputSrc : src
     }
 
-annotateInput :: InputSrc -> Aff (Either String String)
+annotateInput :: InputSrc -> ExceptT String Aff String
 annotateInput src =
   case src of
     FilePath filePath ->
@@ -123,16 +124,16 @@ annotateInput src =
   fromBuffer buff = liftEffect do
     encoding <- detectEncoding <$> toArray buff
     toString encoding buff
-  fromStdin :: Aff (Either String String)
-  fromStdin = do
+  fromStdin :: ExceptT String Aff String
+  fromStdin = ExceptT do
     maybeBuff <- readFromStream stdin
     case maybeBuff of
       Nothing ->
         pure $ Left "No stdin stream found as input, see --help for more info"
       Just buff ->
         fromBuffer buff <#> Right
-  fromFile :: String -> Aff (Either String String)
-  fromFile relPath = lmap message <$> try do
+  fromFile :: String -> ExceptT String Aff String
+  fromFile relPath = withExceptT message <<< ExceptT $ try do
     currPath <- liftEffect cwd
     let absPath = relative currPath relPath
     fileBuff <- readFile absPath
