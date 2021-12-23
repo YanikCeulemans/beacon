@@ -7,29 +7,25 @@ module Cli
   , AnnotateCliOptions
   ) where
 
-import Options.Applicative
+import Options.Applicative (ParseError(..), Parser, ParserResult, abortOption, argument, defaultPrefs, eitherReader, execParserPure, fullDesc, help, helper, info, int, long, metavar, option, progDesc, short, showDefault, str, switch, value, (<**>))
 import Prelude
 
 import Beacon (AnnotateConfig, CharacterLocation, InputSrc(..), characterLocation, defaultConfig, withContextHorizontal, withContextVertical, withoutLinenumbers)
 import Control.Alt ((<|>))
-import Control.Monad.Except (ExceptT(..), catchError, throwError, withExceptT)
+import Control.Monad.Except (ExceptT(..), withExceptT)
 import Control.MonadZero (guard)
-import Data.Array (any, drop, dropWhile, last, slice, snoc, take)
-import Data.Bifunctor (lmap)
-import Data.Either (Either(..), note)
-import Data.Identity (Identity(..))
+import Data.Array (drop, slice, snoc)
+import Data.Either (Either(..))
 import Data.Int as Int
-import Data.Maybe (Maybe(..), fromMaybe, maybe)
+import Data.Maybe (Maybe(..))
 import Data.String (Pattern(..), split)
-import Debug.Trace (spy)
 import Effect (Effect)
-import Effect.Aff (Aff, effectCanceler, error, makeAff, message, nonCanceler, try)
+import Effect.Aff (Aff, effectCanceler, makeAff, message, nonCanceler, try)
 import Effect.Class (liftEffect)
-import Effect.Class.Console (log)
 import Effect.Ref as Ref
 import Node.Buffer (Buffer, concat, toArray, toString)
 import Node.Encoding (Encoding(..))
-import Node.FS.Aff (exists, readFile)
+import Node.FS.Aff (readFile)
 import Node.Path (relative)
 import Node.Process (argv, cwd, stdin)
 import Node.Stream (Readable, onData, onEnd, onError, pause)

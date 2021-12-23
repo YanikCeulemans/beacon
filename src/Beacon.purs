@@ -14,16 +14,14 @@ module Beacon
 import Data.Array
 import Prelude
 
+import Control.Monad.Reader (Reader, ask, runReader)
+import Control.MonadZero (guard)
 import Data.FoldableWithIndex (foldrWithIndex)
 import Data.Generic.Rep (class Generic)
-import Data.Generic.Rep.Show (genericShow)
-import Data.Maybe (Maybe(..), fromMaybe)
 import Data.String (joinWith)
 import Data.String as String
-import Data.String.CodeUnits (drop)
 import Data.String.Utils (lines)
-import Data.Tuple (Tuple(..))
-import Debug.Trace (spy)
+import Data.Show.Generic (genericShow)
 
 type AnnotateContext =
   { left :: Int
@@ -51,9 +49,8 @@ newtype AnnotateConfig = AnnotateConfig
 characterLocation' :: AnnotateConfig -> CharacterLocation
 characterLocation' (AnnotateConfig { characterLocation }) = characterLocation
 
-derive instance genericAnnotateConfig :: Generic AnnotateConfig _
 instance showAnnotateConfig :: Show AnnotateConfig where
-  show = genericShow
+  show _ = "annotate config show"
 
 derive instance eqAnnotateConfig :: Eq AnnotateConfig
 
@@ -107,11 +104,10 @@ newtype CharacterLocation = CharacterLocation
   , column :: Int
   }
 
-derive instance genericCharacterLocation :: Generic CharacterLocation _
 derive instance eqCharacterLocation :: Eq CharacterLocation
 
 instance showCharacterLocation :: Show CharacterLocation where
-  show = genericShow
+  show _ = "character location show"
 
 type TransformationPayload =
   { charLoc :: CharacterLocation
@@ -210,7 +206,7 @@ lineContextTranformation { above, below } rec =
     # _ { charLoc = updateLine (1 + above) rec.charLoc }
   where
   cleanContentsRec = rec { contents = [] }
-  doTransformation i ln r@{ charLoc, contents } =
+  doTransformation i ln r@{ contents } =
     if inContext { lineNo : i, before : above, after : below, pivot : line rec.charLoc } then
       r { contents = ln : contents }
     else
@@ -229,31 +225,26 @@ columnContextTransformation { left, right } rec =
         (String.drop dropAmount ln # String.take (column charLoc - dropAmount + right + 1)) : contents
       }
 
-buildTransformations :: AnnotateConfig -> Array Transformation
-buildTransformations (AnnotateConfig { context, decorated, lineNumbered }) =
-  [ Just $ columnContextTransformation context
-  , if lineNumbered then Just lineNumberTransformation else Nothing
-  , Just $ lineContextTranformation context
-  , if decorated then Just decorateTransformation else Nothing
+buildTransformations :: Reader AnnotateConfig (Array Transformation)
+buildTransformations = do
+  (AnnotateConfig { context, decorated, lineNumbered }) <- ask
+  [ pure $ columnContextTransformation context
+  , guard lineNumbered $> lineNumberTransformation
+  , pure $ lineContextTranformation context
+  , guard decorated $> decorateTransformation
   ]
-    # foldl removeNothings []
-    # reverse
-  where
-  removeNothings acc = case _ of
-    Just t -> t : acc
-    Nothing -> acc
-
-applyTransformation :: TransformationPayload -> Transformation -> TransformationPayload
-applyTransformation payload t = t payload
+    # catMaybes >>> pure
 
 annotate :: AnnotateConfig -> String -> String
-annotate config input = case lines input of
-  [] -> ""
-  contents -> joinWith "\n" decoratedContents.contents
-    where
-      decoratedContents =
-        buildTransformations config
-          # foldl applyTransformation
-            { charLoc : characterLocation' config
-            , contents
-            }
+annotate cfg input = runReader (annotate' input) cfg
+
+annotate' :: String -> Reader AnnotateConfig String
+annotate' input = case lines input of
+  [] -> pure ""
+  contents -> do
+    transformations <- buildTransformations
+    charLoc <- characterLocation' <$> ask
+    let
+      foldStart = { charLoc, contents }
+      resultPayload = foldl (#) foldStart transformations
+    pure $ joinWith "\n" resultPayload.contents
